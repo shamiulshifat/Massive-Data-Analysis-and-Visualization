@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NCAA Football Stadiums Map</title>
+    
+    <link rel="stylesheet" href="http://geoffboeing.com/share/projects/leaflet/0.7.7/leaflet.css" />
+    <script src='http://geoffboeing.com/share/projects/leaflet/0.7.7/leaflet.js'></script>
+    
+    <script src='stadiums-dataset.js'></script>
+    
+    <style type='text/css'>
+    
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: Helvetica, sans-serif;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+    .popupHeader {
+      font-weight: bold;
+      color: gray;
+      font-size: 110%;
+    }
+    .popupDetails {
+      font-weight: normal;
+      color: gray;
+    }
+
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <script type="text/javascript">
+    // create the Leaflet map container
+    var map = L.map('map');
+    var initialMapCenter = [37.5, -97];
+    var initialZoomLevel = 4;
+    
+    //add tile layer basemap to the map
+    basemapUrl = 'http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+    basemapAttribution = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://cartodb.com/attributions">CartoDB</a>';
+    basemapProperties = {minZoom: 4, maxZoom: 11, attribution: basemapAttribution};
+    var basemap = L.tileLayer(basemapUrl, basemapProperties);
+    map.addLayer(basemap);
+
+    // specify what the circle markers should look like
+    var markerStyles = {
+        radius: 8,
+        fillColor: 'blue', fillOpacity: 0.6,
+        color: '#333333', opacity: 0.6, weight: 1
+    };
+    
+    popupFunction = function (feature, layer) {
+        layer.bindPopup('<span class="popupHeader">' + feature.properties.stadium + '</span><br />' + 
+                        '<span class="popupDetails">School/Team: ' + feature.properties.team + '<br />' + 
+                        'Location: ' + feature.properties.city + ', ' + feature.properties.state + '<br />' + 
+                        'Built: ' + feature.properties.built + '<br />' + 
+                        'Capacity: ' + feature.properties.capacity_str + '<br />' + 
+                        'Conference: ' + feature.properties.conference + '</span>');}
+    function getColor(div) {
+        if(div=='fbs') {return '#cc0000';}
+        else {return '#0033cc';}
+    }
+    
+    function getRadius(capacity) {
+        // radius is a function of stadium capacity and map zoom level
+        power = 0.35;
+        if (map.getZoom()) { radius = Math.pow(capacity / (100 / map.getZoom()), power); } //if map already exists, get current zoom level
+        else { radius = Math.pow(capacity / (100 / initialZoomLevel), power); } //if it's the initial startup, use initial zoom level
+        return radius;
+    }
+     
+    // specify how to load the individual features 
+    var pointsOptions = {
+        onEachFeature: popupFunction,
+        pointToLayer: function (feature, latlng) { 
+            markerStyles.fillColor = getColor(feature.properties['div']);
+            markerStyles.radius = getRadius(feature.properties['capacity']);
+            return L.circleMarker(latlng, markerStyles);
+        }
+    };
+    
+    // create the layer and add to map
+    var geojsonLayer = L.geoJson(dataset, pointsOptions); 
+    map.addLayer(geojsonLayer);
+    
+    //make marker size scale with zoom
+    map.on('zoomend', function() {
+        for (var key in geojsonLayer._layers) {
+            capacity = geojsonLayer._layers[key].feature.properties['capacity'];
+            geojsonLayer._layers[key].setRadius(getRadius(capacity));
+        }
+    });
+    
+    //center the map window on the contiguous US
+    map.setView(initialMapCenter, initialZoomLevel);
+
+    </script>
+</body>
+</html>
